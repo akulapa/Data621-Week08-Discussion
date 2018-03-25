@@ -28,7 +28,7 @@ library(ggplot2)
 
 #Load data
 
-MissAm.df <- read.csv("D:\\CUNY\\621\\Week08\\MissAmericato2008.csv", header= TRUE, stringsAsFactors = F)
+MissAm.df <- read.csv("https://raw.githubusercontent.com/akulapa/Data621-Week08-Discussion/master/MissAmericato2008.csv", header= TRUE, stringsAsFactors = F)
 attach(MissAm.df)
 
 ```
