@@ -1,0 +1,272 @@
+---
+title: "Data621-Week08-Discussion"
+author: "Pavan Akula"
+date: "March 23, 2018"
+output:
+  html_document:
+    code_folding: hide
+---
+
+![](image3.png)
+
+###**_Answer (a): _**
+
+####Data
+
+The data file is loaded from http://www.stat.tamu.edu/~sheather/book/data_sets.php, file is `tab` separated, I converted into `comma` separated `csv` file.
+
+
+```{r, echo=T, message=F, warning=F}
+options(scipen=999)
+library(dplyr)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(car)
+library(ggrepel)
+library(ggplot2)
+
+#Load data
+
+MissAm.df <- read.csv("D:\\CUNY\\621\\Week08\\MissAmericato2008.csv", header= TRUE, stringsAsFactors = F)
+attach(MissAm.df)
+
+```
+
+Dataset structure, the variable `Top10` represents the number of times `state` made into top 10 list from `2000` to `2008`, including `2000` and `2008`. The number of times `state` did not make into `Top10` list is `9 - Top10`.
+
+```{r, echo=T, message=F, warning=F}
+str(MissAm.df)
+
+summary(MissAm.df)
+
+state.df <- data.frame(abbreviation = state.abb, State=state.name, stringsAsFactors = F)
+MissAm.df <- MissAm.df %>% 
+  mutate(InTop10 = ifelse(Top10>0, 1, 0)) %>% 
+  inner_join(state.df)
+
+MissAm.df %>% 
+  select(State, Top10, InTop10, LogPopulation, LogContestants, LogTotalArea, Latitude, Longitude) %>% 
+  kable("html",caption = "Miss America Contest - Number of Times State Produced Top 10 Finalist`(2000 - 2008)`") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = T, position = "left", font_size = 12) %>%
+  scroll_box(width = "100%", height = "250px")
+
+```
+
+####Model
+
+Coefficients of the full `Generalized Logistic Regression Model`.
+
+```{r, echo=T, message=F, warning=F}
+#Build model
+
+MissAm.glm <- glm(InTop10 ~ LogPopulation + LogContestants + LogTotalArea + Latitude + Longitude, family=binomial(link = "logit"), data = MissAm.df)
+
+MissAm.glm
+```
+
+
+Summary of the model.
+
+```{r, echo=T, message=F, warning=F}
+summary(MissAm.glm)
+#Manually calculating Predicted and Fitted values
+# man.pre<- MissAm.glm$coefficients[1] + 
+#   MissAm.glm$coefficients[2] * MissAm.df$LogPopulation +
+#   MissAm.glm$coefficients[3] * MissAm.df$LogContestants +
+#   MissAm.glm$coefficients[4] * MissAm.df$LogTotalArea +
+#   MissAm.glm$coefficients[5] * MissAm.df$Latitude +
+#   MissAm.glm$coefficients[6] * MissAm.df$Longitude
+# 
+# man.fitted <- 1/(1 + (1/exp(man.pre)))
+
+#Get coefficients
+MissAm.Coe <- round(MissAm.glm$coefficients,4)
+
+```
+
+####Summary Explanation
+
+First part `Call`, shows information about `response variable` and `predictor variables`. 
+
+
+Logistic regression equation
+
+$$ln \bigg(\frac{P}{1-P}\bigg) = \beta_0 + \beta_1{X_1} + \beta_2{X_2} + \beta_3{X_3} + \beta_4{X_4} + \beta_5{X_5}$$
+
+$$ln \bigg(\frac{P}{1-P}\bigg) = `r MissAm.Coe[1]` + `r MissAm.Coe[2]`LogPopulation + `r MissAm.Coe[3]`LogContestants `r MissAm.Coe[4]`LogTotalArea `r MissAm.Coe[5]`Latitude + `r MissAm.Coe[6]`Longitude$$
+
+Probability is 
+
+$$P = \frac{e^{\beta_0 + \beta_1{X_1} + \beta_2{X_2} + \beta_3{X_3} + \beta_4{X_4} + \beta_5{X_5}}}{1 + {e^{\beta_0 + \beta_1{X_1} + \beta_2{X_2} + \beta_3{X_3} + \beta_4{X_4} + \beta_5{X_5}}}}$$
+
+- For every unit increase of `LogPopulation`,  $ln \bigg(\frac{p}{1-p}\bigg)$ increases by `r MissAm.Coe[2]`. `LogPopulation` has a positive effect on the outcome when all other `predictor variables` are held constant. In other words, as log value of state population increases by one unit, `log odds` or `logits` for the state to make into `Top10` list of finalists increases by `r MissAm.Coe[2]`.
+
+- For every unit increase of `LogContestants`,  $ln \bigg(\frac{p}{1-p}\bigg)$ increases by `r MissAm.Coe[3]`. `LogContestants` has a positive effect on the outcome when all other `predictor variables` are held constant. As log value of contestants from a state increases by one unit, `log odds` or `logits` for the state to make into `Top10` list of finalists increases by `r MissAm.Coe[3]`.
+
+- For every unit increase of `LogTotalArea`,  $ln \bigg(\frac{p}{1-p}\bigg)$ decreases by `r abs(MissAm.Coe[4])`. `LogTotalArea` has a negative effect on the outcome when all other `predictor variables` are held constant. As log value of the total area of a state increases by one unit, `log odds` or `logits` for the state to make into `Top10` list of finalists decreases by `r abs(MissAm.Coe[4])`.
+
+- For every degree increase of `Latitude`,  $ln \bigg(\frac{p}{1-p}\bigg)$ decreases by `r abs(MissAm.Coe[5])`. `Latitude` has a negative effect on the outcome when all other `predictor variables` are held constant. As log value of latitude of state capitol increases by one degree, `log odds` or `logits` for the state to make into `Top10` list of finalists decreases by `r abs(MissAm.Coe[5])`.
+
+- For every degree increase of `Longitude`,  $ln \bigg(\frac{p}{1-p}\bigg)$ increases by `r MissAm.Coe[6]`. `Longitude` has a positive effect on the outcome when all other `predictor variables` are held constant. As log value of longitude of state capitol increases by one degree, `log odds` or `logits` for the state to make into `Top10` list of finalists increases by `r MissAm.Coe[6]`.
+
+Model also suggests, 
+
+- Variable `LogPopulation` and `LogTotalArea` are significent at 5% level 
+- Variables `LogContestants` is contributing to model and is significent at 10% level. 
+- Since p-value is high variables `Latitude` and `Longitude` are not significent to the model.
+
+`Null deviance` is 62.687, and `Residual deviance` is 35.972, suggesting variables are needed to build the model. Lower the value of `deviance` better the model.
+
+Akaike information criterion(`AIC`), gives the quality of the model. Lower the value of `AIC` better the model. Since this is full model, lets use `Step` function to see if `AIC` improves if we remove any variables from the model.
+
+
+```{r, echo=T, message=F, warning=F}
+step(MissAm.glm, test="LRT")
+```
+
+`AIC` value without `Latitude` and `Longitude` yield better value. The output of `step` suggests existence of `Latitude` and `Longitude` is not providing any value to the model. Let's build a model without `Latitude` and `Longitude` variables.
+
+```{r, echo=T, message=F, warning=F}
+MissAm.glm_v1 <- glm(InTop10 ~ LogPopulation + LogContestants + LogTotalArea, family=binomial(link = "logit"), data = MissAm.df)
+
+summary(MissAm.glm_v1)
+
+```
+####Marginal Plots For Full Model
+
+```{r, echo=T, message=F, warning=F}
+mmps(MissAm.glm,layout=c(2,3),key=T)
+```
+
+
+####Marginal Plots For The Model Without Longitude
+
+```{r, echo=T, message=F, warning=F}
+mmps(MissAm.glm_v1,layout=c(2,3),key=T)
+```
+
+There is not much difference between the plots. In both `Marginal Plots` curve drawn by `model` and `data` fit between `0` and `1` for all variables. 
+
+####**_Answer (b): _**
+
+The leverage $h_i$ is a measure of the distance between the $x$ value for the $i^{th}$ data point and the mean of the $x$ values for all $n$ data points. If leverage value greater than $2\times \frac{number\ of\ variables + 1}{number\ of\ observations}$ is considered as high leverage point. Leverage values are also known as `hat values`. We obtain the values using function `hatvalues`.
+
+Let's get `hatvalues` for the model that does not have `Longitude` variable. Since we have multiple variables, we will be using `Standardized Deviance Residuals` It is calculated dividing `pearson residual` by $\sqrt{1 - hatvalues}$.
+
+$$Standardized\ Deviance\ Residuals(r_i) = \frac{p_i}{\sqrt{(1 - h_i)}}$$
+
+Leverage points can be identified using `influencePlot` function from `car` package or calculated manually.
+
+```{r, echo=T, message=F, warning=F}
+#Cut of leverage
+#we have 4 variables and 50 observations
+highLeverageHat = 2 * (3+1)/50
+
+#Leverage values
+MissAm.df$hatVal <- hatvalues(MissAm.glm_v1)
+
+#standardized deviance residuals(sdr)
+#Get pearson residuals
+MissAm.df$pearsonResd <- residuals(MissAm.glm_v1,'pearson')
+
+MissAm.df$sdr <- MissAm.df$pearsonResd / (sqrt(1 - MissAm.df$hatVal))
+
+#Cook's distance
+MissAm.df$cookd <- cooks.distance(MissAm.glm_v1)
+
+#High leverage SDR
+#data points falling outside 2 standard deviations
+highLeverageSdrU <- mean(MissAm.df$sdr) + (2*sd(MissAm.df$sdr))
+highLeverageSdrL <- mean(MissAm.df$sdr) - (2*sd(MissAm.df$sdr))
+
+#High leverage based on Cook's distance
+#data points falling outside 2 standard deviations
+highLeverageCookdU <- mean(MissAm.df$cookd) + (2*sd(MissAm.df$cookd))
+highLeverageCookdL <- mean(MissAm.df$cookd) - (2*sd(MissAm.df$cookd))
+
+MissAm.df$Outlier <- ifelse((MissAm.df$hatVal > highLeverageHat | MissAm.df$sdr >  highLeverageSdrU | MissAm.df$sdr <  highLeverageSdrL | MissAm.df$cookd > highLeverageCookdU | MissAm.df$cookd < highLeverageCookdL),'Yes','No')
+```
+
+Identifying leverage data points Using `influencePlot` function
+
+```{r, echo=T, message=F, warning=F}
+
+influencePlot(MissAm.glm_v1, col="red",id.n=5)
+
+```
+
+Manual calculation to identify leverage data points. 
+
+```{r, echo=T, message=F, warning=F}
+ggplot(data=MissAm.df, aes(hatVal,sdr)) + 
+  geom_point(aes(col=Outlier)) + 
+  scale_color_manual(values=c("black", "red")) +
+  geom_vline(xintercept=highLeverageHat, color="blue") +
+  geom_hline(yintercept=c(highLeverageSdrU, highLeverageSdrL), color="blue") +
+  geom_text_repel(data=filter(MissAm.df, (Outlier == 'Yes')), aes(hatVal,sdr, label=State), size=3) +
+  labs(title = sprintf("High Leverage Data Points Using GGPlot - Manually")) + xlab("Leverage(Hat-Values)") +
+  ylab("Standardized Deviance Residuals") +
+  annotate("text", x = 0.04, y = -2.3, label = 'SDR - Lower Bound', colour="blue", size = 3) + 
+  annotate("text", x = 0.04, y = 2.3, label = 'SDR - Upper Bound', colour="blue", size = 3) +
+  annotate("text", x = 0.18, y = 2.5, label = 'High Leverage Hat Value', colour="blue", size = 3)
+
+MissAm.df %>% 
+  select(State, Top10, InTop10, LogPopulation, LogContestants, LogTotalArea, Latitude, Longitude, pearsonResd, hatVal, sdr, cookd, Outlier) %>% 
+  filter(Outlier == 'Yes') %>% 
+  kable("html",caption = "Miss America Contest - High Leverage Data Points") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = T, position = "left", font_size = 12) %>%
+  scroll_box(width = "100%", height = "250px")
+
+```
+
+####Leverage Data Points
+
+- Capitol of state of Rhode Island is on a high `Latitude`(41.7333), and variables `LogTotalArea`(7.3428) and `LogContestants`(2.656757) are low, yet contestants made into `Top10` list. It seems like `Outlier`.
+
+- For state `Delaware` values for variables are close to individual averages, yet contestants never made into `Top10` list at least once in nine years. Data points look like `Outliers`.
+
+- State of `Ohio` has variable `LogContestants` as 3.212187, it is high, yet contestants never made into `Top10` list at least once in nine years. Data point looks like `Outlier`.
+
+- State of `Missouri` has variable `LogContestants` as 3.526361, it is very high, yet contestants never made into `Top10` list at least once in nine years. Data point looks like `Outlier`.
+
+- State of `Vermont` has variable `LogContestants` as 2.335375, it is high compared to `LogTotalArea` 9.1710 and `LogPopulation` 10.0402, yet contestants never made into `Top10` list at least once in nine years. Data point looks like `Outlier`.
+
+- State of `Minnesota` has variable `LogContestants` as 2.724580, it is very high compared to `LogTotalArea` 11.3730 and `LogPopulation` 12.1286, yet contestants never made into `Top10` list at least once in nine years. Data point looks like `Outlier`.
+
+- State of `Nevada` has variable `LogContestants` as 2.549445, it is very low, yet contestants from the state made into `Top10` list. This does not seem to be bad leverage data point.
+
+
+
+####**_Answer (c): _**
+
+```{r, echo=T, message=F, warning=F}
+MissAm.glm <- glm(InTop10 ~ LogPopulation + LogContestants + LogTotalArea, family=binomial(link = "logit"), data = MissAm.df)
+MissAm.Coe <- round(MissAm.glm$coefficients,4)
+summary(MissAm.glm)
+
+```
+
+- Intercepct value(-9.4502) decreased a lot by removing `Latitude` and `Longitude` variables.
+
+- For every unit increase of `LogPopulation`,  $ln \bigg(\frac{p}{1-p}\bigg)$ increases by `r MissAm.Coe[2]`. `LogPopulation` has a positive effect on the outcome when all other `predictor variables` are held constant. In other words, as log value of state population increases by one unit, `log odds` or `logits` for the state to make into `Top10` list of finalists increases by `r MissAm.Coe[2]`.
+
+- For every unit increase of `LogContestants`,  $ln \bigg(\frac{p}{1-p}\bigg)$ increases by `r MissAm.Coe[3]`. `LogContestants` has a positive effect on the outcome when all other `predictor variables` are held constant. As log value of contestants from a state increases by one unit, `log odds` or `logits` for the state to make into `Top10` list of finalists increases by `r MissAm.Coe[3]`.
+
+- For every unit increase of `LogTotalArea`,  $ln \bigg(\frac{p}{1-p}\bigg)$ decreases by `r abs(MissAm.Coe[4])`. `LogTotalArea` has a negative effect on the outcome when all other `predictor variables` are held constant. As log value of the total area of a state increases by one unit, `log odds` or `logits` for the state to make into `Top10` list of finalists decreases by `r abs(MissAm.Coe[4])`.
+
+Model also suggests, 
+
+- Variable `LogTotalArea` is significent at 5% level 
+- Variables `LogContestants` and `LogPopulation` are contributing to model and are significent at 10% level. 
+
+`Null deviance` is 62.687, and `Residual deviance` is 37.981, suggesting variables are needed to build the model. Lower the value of `deviance` better the model.
+
+
+####References
+- https://www.youtube.com/watch?v=B2nJ3U4E1VA
+- http://data.princeton.edu/wws509/notes/c3s8.html
+- https://www.unc.edu/courses/2010fall/ecol/563/001/docs/lectures/lecture17.htm
+- https://onlinecourses.science.psu.edu/stat501/node/338
+
+
